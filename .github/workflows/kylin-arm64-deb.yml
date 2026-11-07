@@ -23,13 +23,12 @@ jobs:
 
       - name: Install system dependencies (glibc 2.31 toolchain)
         run: |
-          if ! apt-get update || ! apt-cache show libwebkit2gtk-4.0-dev >/dev/null 2>&1; then
-            printf '%s\n' \
-              'deb http://archive.debian.org/debian bullseye main' \
-              'deb http://archive.debian.org/debian-security bullseye-security main' \
-              > /etc/apt/sources.list
-            apt-get -o Acquire::Check-Valid-Until=false update
-          fi
+          # Debian 11 已归档，deb.debian.org 的 security 池包文件已清空，必须用归档源
+          printf '%s\n' \
+            'deb http://archive.debian.org/debian bullseye main' \
+            'deb http://archive.debian.org/debian-security bullseye-security main' \
+            > /etc/apt/sources.list
+          apt-get -o Acquire::Check-Valid-Until=false update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             pkg-config file binutils ca-certificates curl \
             libwebkit2gtk-4.0-dev libgtk-3-dev librsvg2-dev libssl-dev patchelf
@@ -53,8 +52,8 @@ jobs:
           BIN=src-tauri/target/release/RimeTune
           echo "=== NEEDED libraries ==="
           readelf -d "$BIN" | grep NEEDED
-          if ! readelf -d "$BIN" | grep -q 'libwebkit2gtk-4.0.so.0'; then
-            echo "::error::二进制没有链接到 libwebkit2gtk-4.0.so.0"
+          if ! readelf -d "$BIN" | grep -q 'libwebkit2gtk-4.0.so'; then
+            echo "::error::二进制没有链接到 WebKitGTK 4.0"
             exit 1
           fi
           MAX_GLIBC=$(readelf -V "$BIN" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V -u | tail -1)
