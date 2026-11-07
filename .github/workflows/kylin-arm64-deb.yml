@@ -49,7 +49,9 @@ jobs:
 
       - name: Verify Kylin V10 compatibility
         run: |
-          BIN=src-tauri/target/release/RimeTune
+          # Tauri 1 打包时会把 target/release/rimetune 重命名为 productName 的 kebab-case
+          BIN=src-tauri/target/release/rime-tune
+          if [ ! -f "$BIN" ]; then BIN=src-tauri/target/release/rimetune; fi
           echo "=== NEEDED libraries ==="
           readelf -d "$BIN" | grep NEEDED
           if ! readelf -d "$BIN" | grep -q 'libwebkit2gtk-4.0.so'; then
