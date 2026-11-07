@@ -1,0 +1,80 @@
+name: Kylin V10 ARM64 Deb
+
+on:
+  push:
+    branches: [kylin-v10]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux-arm64:
+    # Debian 11 = glibc 2.31 + WebKitGTK 4.0，麒麟 V10 可直接安装。
+    # node:20-bullseye 自带 git / Node 20 / 构建链，容器任务里的 checkout 才能跑。
+    name: Build Linux ARM64 (Kylin V10 / Debian 11 Compatible Deb)
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: node:20-bullseye
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies (glibc 2.31 toolchain)
+        run: |
+          if ! apt-get update || ! apt-cache show libwebkit2gtk-4.0-dev >/dev/null 2>&1; then
+            printf '%s\n' \
+              'deb http://archive.debian.org/debian bullseye main' \
+              'deb http://archive.debian.org/debian-security bullseye-security main' \
+              > /etc/apt/sources.list
+            apt-get -o Acquire::Check-Valid-Until=false update
+          fi
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            pkg-config file binutils ca-certificates curl \
+            libwebkit2gtk-4.0-dev libgtk-3-dev librsvg2-dev libssl-dev patchelf
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Linux ARM64 Deb
+        run: npm run tauri build -- --bundles deb
+
+      - name: Verify Kylin V10 compatibility
+        run: |
+          BIN=src-tauri/target/release/RimeTune
+          echo "=== NEEDED libraries ==="
+          readelf -d "$BIN" | grep NEEDED
+          if ! readelf -d "$BIN" | grep -q 'libwebkit2gtk-4.0.so.0'; then
+            echo "::error::二进制没有链接到 libwebkit2gtk-4.0.so.0"
+            exit 1
+          fi
+          MAX_GLIBC=$(readelf -V "$BIN" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V -u | tail -1)
+          echo "=== 最高 glibc 版本需求: GLIBC_$MAX_GLIBC ==="
+          if [ "$(printf '%s\n2.31\n' "$MAX_GLIBC" | sort -V | tail -1)" != "2.31" ]; then
+            echo "::error::需要 GLIBC_$MAX_GLIBC，高于麒麟 V10 的 2.31，包无法运行"
+            exit 1
+          fi
+          echo "=== Deb 包依赖 ==="
+          dpkg-deb -I src-tauri/target/release/bundle/deb/*.deb | grep -E 'Package|Architecture|Depends'
+
+      - name: Stage Linux ARM64 Artifacts
+        run: |
+          mkdir -p staging-linux-arm64
+          cp src-tauri/target/release/bundle/deb/*.deb staging-linux-arm64/
+          ls -la staging-linux-arm64/
+
+      - name: Upload Linux ARM64 Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-artifacts
+          path: staging-linux-arm64/*
+          if-no-files-found: error

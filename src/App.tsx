@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/tauri';
 import {
   EnvironmentStatus,
   UnifiedFullConfig,
@@ -68,8 +68,8 @@ export function App() {
 
   const openRepoUrl = async () => {
     try {
-      const { openUrl } = await import('@tauri-apps/plugin-opener');
-      await openUrl('https://github.com/harry10086/RimeTune');
+      const { open } = await import('@tauri-apps/api/shell');
+      await open('https://github.com/harry10086/RimeTune');
     } catch {
       window.open('https://github.com/harry10086/RimeTune', '_blank');
     }

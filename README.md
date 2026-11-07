@@ -2,7 +2,7 @@
 
 RimeTune 是一款专为 **Rime（中州韵输入法引擎）全平台（Windows 小狼毫 Weasel、macOS 鼠须管 Squirrel、Linux ibus/fcitx5-rime）** 量身打造的现代图形化配置与管理中心。
 
-基于 **Tauri 2.x + Rust + React 19 + TypeScript** 构建，具备极小体积、极速启动、多平台路径自动抹平、原生底层支持与高保真现代化视觉体验。
+基于 **Tauri 1.x + Rust + React 19 + TypeScript** 构建（使用 WebKitGTK 4.0，兼容银河麒麟 V10 等老系统），具备极小体积、极速启动、多平台路径自动抹平、原生底层支持与高保真现代化视觉体验。
 
 ![dashboard](https://github.mianao.info/https://raw.githubusercontent.com/harry10086/picx-images-hosting/master/Rime/dashboard.webp)
 
@@ -88,7 +88,7 @@ RimeTune 是一款专为 **Rime（中州韵输入法引擎）全平台（Windows
 #### 🌐 通用核心依赖（全平台必需）
 - **Node.js**：推荐版本 `v20.x` LTS 以上（自带 npm 包管理器）。
   - 验证命令：`node -v`、`npm -v`
-- **Rust 编译环境 (Rust toolchain)**：Tauri 2.x 底层由 Rust 驱动，需要 Rust 编译器与 Cargo 工具。
+- **Rust 编译环境 (Rust toolchain)**：Tauri 1.x 底层由 Rust 驱动，需要 Rust 编译器与 Cargo 工具。
   - 安装方法：访问 [Rust 官方安装指南](https://www.rust-lang.org/tools/install) 安装 `rustup`。
   - 验证命令：`rustc --version`、`cargo --version`
 
@@ -103,29 +103,28 @@ RimeTune 是一款专为 **Rime（中州韵输入法引擎）全平台（Windows
   ```
 - *注：macOS 原生使用操作系统的 WebKit (WKWebView)，无需安装额外的 WebView 运行库。*
 
-#### 🐧 Linux 环境补充 (Ubuntu / Debian / Arch / Fedora 等)
-Linux 下需要安装 WebKitGTK 与 GTK3 等开发依赖库：
-- **Ubuntu / Debian / Mint / Deepin / UOS**：
+#### 🐧 Linux 环境补充 (Ubuntu / Debian / Arch / Fedora / 麒麟 V10 等)
+Linux 下需要安装 WebKitGTK 4.0（libsoup2）与 GTK3 等开发依赖库：
+- **Ubuntu / Debian / Mint / Deepin / UOS / 银河麒麟 V10**：
   ```bash
   sudo apt-get update && sudo apt-get install -y \
-    libwebkit2gtk-4.1-dev \
-    libappindicator3-dev \
+    libwebkit2gtk-4.0-dev \
     librsvg2-dev \
     patchelf \
     libssl-dev \
     libgtk-3-dev \
     build-essential
   ```
+  麒麟 V10 官方源只提供 WebKitGTK 4.0（运行时包 `libwebkit2gtk-4.0-37`），因此本项目使用 Tauri 1.x；请勿升级到 Tauri 2.x（其强制要求 4.1，麒麟 V10 无此包）。
 - **Arch Linux / Manjaro**：
   ```bash
-  sudo pacman -S webkit2gtk-4.1 base-devel openssl libappindicator-gtk3 librsvg patchelf
+  sudo pacman -S webkit2gtk-4.0 base-devel openssl librsvg patchelf
   ```
 - **Fedora / RHEL**：
   ```bash
   sudo dnf install \
-    webkit2gtk4.1-devel \
+    webkit2gtk4.0-devel \
     openssl-devel \
-    libappindicator-gtk3-devel \
     librsvg2-devel \
     @development-tools
   ```
@@ -208,7 +207,7 @@ npm run build:portable
 ```
 - **输出文件**：
   - `.deb` 安装包（Ubuntu / Debian / 树莓派双击或 `sudo dpkg -i` 安装）：`src-tauri/target/release/bundle/deb/RimeTune_0.3.1_amd64.deb`（或 `_arm64.deb`）
-  - `.AppImage` 免安装便携版（赋予执行权限 `chmod +x` 即可直接运行）：`src-tauri/target/release/bundle/appimage/RimeTune_0.3.1_amd64.AppImage`（或 `_aarch64.AppImage`）
+  - `.AppImage` 免安装便携版（赋予执行权限 `chmod +x` 即可直接运行）：`src-tauri/target/release/bundle/appimage/RimeTune_0.3.1_amd64.AppImage`
   - 独立 ELF 二进制文件：`src-tauri/target/release/RimeTune`
 
 ---
@@ -239,8 +238,8 @@ npm run build:portable
 - **Q: 树莓派 (Raspberry Pi) 或 ARM64 设备本地编译时卡死或被 Kill？**
   - **原因**：Rust 编译阶段并行度高且消耗较多内存。若树莓派物理内存在 1GB~2GB，可能会因内存耗尽 (OOM) 导致进程退出。
   - **解决**：在编译前临时配置 2GB~4GB Swap 交换空间，或者限制编译并发数（如 `CARGO_BUILD_JOBS=2 npm run tauri build`）。
-- **Q: 编译报错 `Package 'webkit2gtk-4.1', not found` 或缺少 openssl**
-  - **解决**：检查系统是否安装了 `libwebkit2gtk-4.1-dev`（Ubuntu/Debian）或 `webkit2gtk-4.1`（Arch），详见上方 Linux 依赖安装指南。
+- **Q: 编译报错 `Package 'webkit2gtk-4.0', not found` 或缺少 openssl**
+  - **解决**：检查系统是否安装了 `libwebkit2gtk-4.0-dev`（Ubuntu/Debian/麒麟）或 `webkit2gtk-4.0`（Arch），详见上方 Linux 依赖安装指南。
 - **Q: Fcitx5-Rime 与 IBus-Rime 用户目录默认在哪里？**
   - **Fcitx5-Rime**：`~/.local/share/fcitx5/rime` 或 `~/.config/fcitx5/rime`；
   - **IBus-Rime**：`~/.config/ibus/rime`；

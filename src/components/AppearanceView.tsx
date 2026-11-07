@@ -23,7 +23,7 @@ import {
   Download,
   Copy,
 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/tauri';
 
 interface AppearanceViewProps {
   styleConfig: WeaselStyleConfig;

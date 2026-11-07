@@ -22,7 +22,7 @@ import {
   X,
   Cpu,
 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/tauri';
 
 interface SchemaStateConfig {
   schema_id: string;

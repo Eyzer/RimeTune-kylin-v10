@@ -299,8 +299,6 @@ fn parse_color_scheme_yaml(yaml_str: String) -> Result<patcher::ColorSchemeItem,
     patcher::parse_color_scheme_yaml(&yaml_str)
 }
 
-use tauri::Manager;
-
 fn resolve_actual_user_dir(user_dir: Option<&str>) -> Result<String, String> {
     if let Some(d) = user_dir {
         if !d.trim().is_empty() {
@@ -453,18 +451,8 @@ async fn set_typing_stats_enabled(user_dir: Option<String>, enabled: bool) -> Re
     .map_err(|e| format!("调度打字统计切换任务失败: {e}"))?
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
-            if let Some(window) = app.get_webview_window("main") {
-                if let Some(icon) = app.default_window_icon() {
-                    let _ = window.set_icon(icon.clone());
-                }
-            }
-            Ok(())
-        })
         .invoke_handler(tauri::generate_handler![
             get_environment_status,
             get_full_config,

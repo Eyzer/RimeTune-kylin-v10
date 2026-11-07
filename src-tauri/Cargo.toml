@@ -19,11 +19,13 @@ name = "RimeTune"
 path = "src/main.rs"
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "1", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
+# 使用 Tauri 1.x：Linux 后端依赖 WebKitGTK 4.0（libsoup2），
+# 可在麒麟 V10（glibc 2.31、libwebkit2gtk-4.0-37）等老系统上运行。
+# Tauri 2.x 强制要求 WebKitGTK 4.1（libsoup3），麒麟 V10 官方源未提供。
+tauri = { version = "1", features = ["shell-open"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"

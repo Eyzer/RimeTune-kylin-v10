@@ -108,13 +108,13 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev build-essential libfuse2
+          sudo apt-get install -y libwebkit2gtk-4.0-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev build-essential libfuse2
 
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Build Linux Bundles (Deb & AppImage)
-        run: npm run tauri build
+        run: npm run tauri build -- --bundles deb,appimage
 
       - name: Stage Linux Artifacts
         run: |
@@ -131,48 +131,13 @@ jobs:
           if-no-files-found: error
 
   build-linux-arm64:
-    name: Build Linux ARM64 (Deb & AppImage for Raspberry Pi)
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Linux ARM64 dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev build-essential libfuse2
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build Linux ARM64 Bundles (Deb & AppImage)
-        run: npm run tauri build
-
-      - name: Stage Linux ARM64 Artifacts
-        run: |
-          mkdir -p staging-linux-arm64
-          cp src-tauri/target/release/bundle/deb/*.deb staging-linux-arm64/ || true
-          cp src-tauri/target/release/bundle/appimage/*.AppImage staging-linux-arm64/ || true
-          ls -la staging-linux-arm64/
-
-      - name: Upload Linux ARM64 Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-arm64-artifacts
-          path: staging-linux-arm64/*
-          if-no-files-found: error
+    name: Build Linux ARM64 (Kylin V10 / Debian 11 Compatible Deb)
+    uses: ./.github/workflows/kylin-arm64-deb.yml
 
   publish-release:
     name: Publish Multiplatform Release
+    # 手动触发（workflow_dispatch）时只产出构建工件，不创建 Release
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [build-windows, build-macos, build-linux, build-linux-arm64]
     runs-on: ubuntu-latest
     steps:
@@ -226,8 +191,8 @@ jobs:
             - **打字统计全平台支持与跨平台目录动态适配**：
               - 配合 `extras/input_stats.lua` 采集器，在仪表盘侧边栏新增「打字统计」可视化看板（支持今日、近 7 天、近 30 天统计与 12 周活跃热力图）；
               - 重构路径动态定位逻辑，彻底解决在 macOS、Linux 及自定义 Rime 用户路径下找不到数据文件的跨平台问题；
-            - **新增 Linux ARM64 (树莓派 Raspberry Pi) 官方构建支持**：
-              - 原生支持基于 64 位 Raspberry Pi OS、Ubuntu ARM64 等单板机环境，构建提供专用 ARM64 `.deb` 与 `.AppImage`；
+            - **新增 Linux ARM64 官方构建支持（兼容麒麟 V10）**：
+              - 在 Debian 11（glibc 2.31）环境中原生构建，运行时仅依赖 WebKitGTK 4.0，可在银河麒麟桌面 V10（arm64/飞腾/鲲鹏）、Debian 11、树莓派 64 位系统上直接安装运行；
             - **WeaselTune 全新升级为 RimeTune 跨平台配置中心**：从原专属 Windows 小狼毫工具正式蜕变升级为统一的 Rime 中州韵全平台配置中心；
             - **底层路径归一化重构**：消除跨系统环境下的路径解析差异，保障跨环境一致性；
             - **万象拼音 Octagram 上下文语言模型完整支持**：
@@ -246,9 +211,9 @@ jobs:
               - `RimeTune.exe` / `RimeTune-windows-x64-portable.zip`：纯绿色免安装便携版（解压即用，原生无冗余）
             - **🍎 macOS**：macOS 11 (Big Sur) 及以上（提供 Universal 通用架构 DMG，原生通吃 Apple Silicon M1/M2/M3/M4 与 Intel x86_64 处理器）
               - `.dmg`：Universal 通用架构拖拽式安装镜像
-            - **🐧 Linux (x86_64 与 ARM64 树莓派)**：Ubuntu 22.04+、Debian 11/12、Raspberry Pi OS (64位)、Arch Linux、Fedora 38+、Linux Mint、Deepin / 统信 UOS 等
-              - `.AppImage`：免安装便携单文件（提供 x86_64 与 aarch64 双架构）
-              - `.deb`：Debian / Ubuntu / 树莓派等标准安装包（提供 amd64 与 arm64 双架构）
+            - **🐧 Linux (x86_64 与 ARM64)**：Ubuntu 22.04+、Debian 11/12、银河麒麟桌面 V10（arm64）、Raspberry Pi OS (64位)、Arch Linux、Fedora 38+、Linux Mint、Deepin / 统信 UOS 等
+              - `.AppImage`：免安装便携单文件（x86_64）
+              - `.deb`：Debian / Ubuntu / 麒麟 V10 等标准安装包（提供 amd64 与 arm64 双架构，arm64 版基于 glibc 2.31 + WebKitGTK 4.0 构建）
 
             ---
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CustomPhraseItem, PhraseFileInfo } from '../types';
 import { Plus, Trash2, Search, Save, Sparkles, X, RotateCcw, FolderOpen, ExternalLink, RotateCw, CheckCircle2, FileText, Zap } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/tauri';
 
 interface PhrasesViewProps {
   phrases: CustomPhraseItem[];
