@@ -18,6 +18,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "RimeTune"
 path = "src/main.rs"
 
+[features]
+# Tauri 1 生产构建时 CLI 会传 --features custom-protocol
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "1", features = [] }
 
