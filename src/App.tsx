@@ -125,12 +125,13 @@ export function App() {
       setSnapshots(snaps);
     } catch (err: any) {
       console.warn('Tauri IPC 加载回退', err);
+      showToast('读取输入法环境失败，请确认已安装 Rime 后重新检测', 'error');
       const mockEnv: EnvironmentStatus = {
-        weasel_installed: true,
-        weasel_version: '0.17.0',
-        weasel_root: 'C:\\Program Files\\Rime\\weasel-0.17.0',
-        deployer_path: 'C:\\Program Files\\Rime\\weasel-0.17.0\\WeaselDeployer.exe',
-        rime_user_dir: 'C:\\Users\\Harry\\AppData\\Roaming\\Rime',
+        weasel_installed: false,
+        weasel_version: '',
+        weasel_root: '',
+        deployer_path: '',
+        rime_user_dir: '',
         is_rime_ice_detected: true,
         active_schema_id: 'rime_ice',
         active_schema_name: '雾凇拼音',
@@ -798,10 +799,10 @@ export function App() {
               <RefreshCw size={28} color="var(--accent)" className="spin" />
             </div>
             <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>
-              小狼毫正在重新部署中
+              输入法正在重新部署中
             </div>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0 }}>
-              正在后台调用小狼毫编译输入方案、词典索引与拼音映射。<br />
+              正在后台让输入法编译输入方案、词典索引与拼音映射。<br />
               通常需要 <strong style={{ color: 'var(--text-main)' }}>3 ~ 10 秒</strong>，请耐心等待完成。<br />
               <span style={{ color: '#fbbf24', fontSize: '12px', fontWeight: 600, display: 'inline-block', marginTop: '6px' }}>
                 ⚡ 部署过程中窗口已安全保护，无需重复点击

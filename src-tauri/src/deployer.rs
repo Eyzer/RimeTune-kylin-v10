@@ -27,6 +27,17 @@ pub fn run_weasel_command(
     custom_deployer: Option<String>,
     success_msg: &str,
 ) -> DeployResult {
+    #[cfg(target_os = "linux")]
+    {
+        if arg == "/sync" {
+            return DeployResult {
+                success: false,
+                message: "当前系统不支持自动同步，请手动执行 Rime 词库同步工具".to_string(),
+                deployer_used: String::new(),
+            };
+        }
+    }
+
     // 1. 尝试获取互斥锁。如果已有部署任务正在进行，直接返回提示，避免重复执行争抢锁
     if IS_DEPLOYING
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -56,7 +67,7 @@ pub fn run_weasel_command(
     if deployer_path.is_empty() || !std::path::Path::new(&deployer_path).exists() {
         return DeployResult {
             success: false,
-            message: "未找到 WeaselDeployer.exe 部署程序，请检查小狼毫安装路径".to_string(),
+            message: "未找到可用的部署程序，请检查输入法安装路径".to_string(),
             deployer_used: String::new(),
         };
     }
@@ -124,10 +135,75 @@ pub fn run_weasel_command(
     }
 }
 
+#[allow(unreachable_code)]
 pub fn trigger_deploy(custom_deployer: Option<String>) -> DeployResult {
-    run_weasel_command(
-        "/deploy",
-        custom_deployer,
-        "重新部署指令已成功发送给小狼毫，配置与词库已刷新！",
-    )
+    #[cfg(target_os = "linux")]
+    {
+        return linux_trigger_deploy(custom_deployer);
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        run_weasel_command(
+            "/deploy",
+            custom_deployer,
+            "重新部署指令已发送，配置与词库已刷新！",
+        )
+    }
+}
+
+/// Linux 上让 fcitx5 / ibus 重新载入配置；配置已落盘时不把重载失败当成保存失败。
+#[cfg(target_os = "linux")]
+fn linux_trigger_deploy(custom_deployer: Option<String>) -> DeployResult {
+    let user_dir = crate::detector::fallback_rime_user_dir();
+    let mut cmds: Vec<(String, Vec<&str>)> = Vec::new();
+    if let Some(p) = custom_deployer
+        .filter(|p| !p.trim().is_empty() && std::path::Path::new(p).exists())
+    {
+        cmds.push((p, vec![]));
+    } else {
+        for bin in ["/usr/bin/fcitx5-remote", "/usr/local/bin/fcitx5-remote"] {
+            if std::path::Path::new(bin).exists() {
+                cmds.push((bin.to_string(), vec!["-r"]));
+                break;
+            }
+        }
+        for bin in ["/usr/bin/ibus", "/usr/local/bin/ibus"] {
+            if std::path::Path::new(bin).exists() {
+                cmds.push((bin.to_string(), vec!["restart"]));
+                break;
+            }
+        }
+    }
+    if cmds.is_empty() {
+        return DeployResult {
+            success: true,
+            message: format!(
+                "配置已写入 {}，未找到可自动重载的输入法，请手动重新部署 Rime",
+                user_dir
+            ),
+            deployer_used: String::new(),
+        };
+    }
+    let mut last_err = String::new();
+    for (bin, args) in &cmds {
+        match Command::new(bin).args(args).status() {
+            Ok(s) if s.success() => {
+                return DeployResult {
+                    success: true,
+                    message: format!("配置已保存，已通过 {} 重新载入输入法", bin),
+                    deployer_used: bin.clone(),
+                };
+            }
+            Ok(s) => last_err = format!("{} 返回 {}", bin, s),
+            Err(e) => last_err = format!("无法执行 {}: {}", bin, e),
+        }
+    }
+    DeployResult {
+        success: true,
+        message: format!(
+            "配置已保存；自动重载未成功（{}），请手动重新部署 Rime",
+            last_err
+        ),
+        deployer_used: String::new(),
+    }
 }

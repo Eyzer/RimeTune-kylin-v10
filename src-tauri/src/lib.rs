@@ -321,16 +321,7 @@ fn resolve_actual_user_dir(user_dir: Option<&str>) -> Result<String, String> {
     }
     #[cfg(target_os = "linux")]
     {
-        let home = std::env::var("HOME").map_err(|_| "无法定位用户 HOME 目录".to_string())?;
-        let candidates = [
-            std::path::PathBuf::from(&home).join(".local/share/fcitx5/rime"),
-            std::path::PathBuf::from(&home).join(".config/fcitx5/rime"),
-            std::path::PathBuf::from(&home).join(".config/ibus/rime"),
-        ];
-        let p = candidates.into_iter().find(|p| p.exists()).unwrap_or_else(|| {
-            std::path::PathBuf::from(home).join(".local/share/fcitx5/rime")
-        });
-        Ok(p.to_string_lossy().to_string())
+        Ok(detector::fallback_rime_user_dir())
     }
     #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     {

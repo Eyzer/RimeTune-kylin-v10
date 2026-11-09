@@ -37,7 +37,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
               <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>
-                小狼毫配置中心
+                输入法配置中心
               </span>
               <span
                 style={{
@@ -54,7 +54,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '680px', lineHeight: '1.6' }}>
-              安全同步小狼毫原生补丁（<span className="mono" style={{ color: 'var(--accent)', fontWeight: 600 }}>*.custom.yaml</span>）。不修改底层文件，升级词库防覆盖；修改后一键静默重新部署，无需右键托盘！
+              安全同步输入法原生补丁（<span className="mono" style={{ color: 'var(--accent)', fontWeight: 600 }}>*.custom.yaml</span>）。不修改底层文件，升级词库防覆盖；修改后一键静默重新部署，无需右键托盘！
             </p>
           </div>
 
@@ -76,7 +76,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 cursor: loading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s',
               }}
-              title="重新检测小狼毫安装与用户环境"
+              title="重新检测输入法安装与用户环境"
             >
               <RefreshCw size={15} className={loading ? 'spin' : ''} />
               重新检测
@@ -129,7 +129,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* 状态诊断卡片网格 (高对比度、清晰字体) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
-        {/* 小狼毫本体 */}
+        {/* 输入法本体 */}
         <div
           className="glass-panel glow-card"
           style={{ padding: '20px', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}
@@ -137,7 +137,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dim)', fontSize: '13px', fontWeight: 600 }}>
               <Cpu size={18} color="#38bdf8" />
-              <span>小狼毫 (Weasel)</span>
+              <span>输入法环境</span>
             </div>
             {env?.weasel_installed ? (
               <span style={{ color: '#34d399', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -150,10 +150,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </div>
           <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)' }}>
-            版本: {env?.weasel_version || '0.17.x'}
+            重载方式: {env?.deployer_path || '自动检测'}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-dim)', wordBreak: 'break-all' }} className="mono">
-            {env?.weasel_root || '未识别'}
+            {env?.rime_user_dir || '未识别'}
           </div>
         </div>
 

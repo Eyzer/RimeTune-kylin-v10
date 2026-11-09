@@ -31,6 +31,79 @@ pub struct EnvironmentStatus {
     pub available_grammar_models: Vec<GrammarModelItem>,
 }
 
+/// 扫描 Linux 常见 Rime 用户目录，优先选含 Rime 特征文件的目录。
+#[cfg(target_os = "linux")]
+fn linux_rime_dir() -> Option<String> {
+    let home = std::env::var("HOME").ok()?;
+    let xdg = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
+    let mut candidates = vec![
+        PathBuf::from(&home).join(".local/share/fcitx5/rime"),
+        PathBuf::from(&xdg).join("fcitx5/rime"),
+        PathBuf::from(&home).join(".config/ibus/rime"),
+        PathBuf::from(&xdg).join("fcitx/rime"),
+        PathBuf::from(&home).join(".local/share/fcitx/rime"),
+        PathBuf::from(&home).join(".fcitx/rime"),
+        PathBuf::from(&home).join(".rime"),
+        PathBuf::from(&xdg).join("rime"),
+    ];
+    for parent in [PathBuf::from(&xdg), PathBuf::from(&home).join(".local/share")] {
+        if let Ok(entries) = std::fs::read_dir(&parent) {
+            for e in entries.flatten() {
+                let p = e.path();
+                if p.is_dir() && p.file_name().and_then(|n| n.to_str()) == Some("rime") {
+                    candidates.push(p);
+                }
+            }
+        }
+    }
+    for c in &candidates {
+        if c.is_dir()
+            && (c.join("default.yaml").exists()
+                || c.join("default.custom.yaml").exists()
+                || c.join("installation.yaml").exists())
+        {
+            return Some(c.to_string_lossy().to_string());
+        }
+    }
+    candidates
+        .into_iter()
+        .find(|c| c.is_dir())
+        .map(|c| c.to_string_lossy().to_string())
+}
+
+/// Rime 用户目录兜底：支持 RIME_USER_DIR 手动指定；Linux 不再回退到 Windows 的 APPDATA。
+#[allow(unreachable_code)]
+pub fn fallback_rime_user_dir() -> String {
+    if let Ok(dir) = std::env::var("RIME_USER_DIR") {
+        if !dir.trim().is_empty() {
+            return dir.trim().to_string();
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(d) = linux_rime_dir() {
+            return d;
+        }
+        let home = std::env::var("HOME").unwrap_or_default();
+        return PathBuf::from(&home)
+            .join(".local/share/fcitx5/rime")
+            .to_string_lossy()
+            .to_string();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        return PathBuf::from(&home).join("Library/Rime").to_string_lossy().to_string();
+    }
+    #[cfg(windows)]
+    {
+        return std::env::var("APPDATA")
+            .map(|a| PathBuf::from(a).join("Rime").to_string_lossy().to_string())
+            .unwrap_or_default();
+    }
+    String::new()
+}
+
 pub fn detect_weasel_paths() -> (Option<String>, Option<String>, Option<String>) {
     let mut weasel_root: Option<String> = None;
     let mut user_dir: Option<String> = None;
@@ -95,18 +168,8 @@ pub fn detect_weasel_paths() -> (Option<String>, Option<String>, Option<String>)
 
     #[cfg(target_os = "linux")]
     {
-        if let Ok(home) = std::env::var("HOME") {
-            let candidates = [
-                PathBuf::from(&home).join(".local/share/fcitx5/rime"),
-                PathBuf::from(&home).join(".config/fcitx5/rime"),
-                PathBuf::from(&home).join(".config/ibus/rime"),
-            ];
-            for c in &candidates {
-                if c.exists() {
-                    user_dir = Some(c.to_string_lossy().to_string());
-                    break;
-                }
-            }
+        if user_dir.is_none() {
+            user_dir = linux_rime_dir();
         }
     }
 
@@ -167,19 +230,27 @@ pub fn detect_weasel_paths() -> (Option<String>, Option<String>, Option<String>)
         }
     }
 
+    if user_dir.is_none() {
+        let d = fallback_rime_user_dir();
+        if !d.is_empty() {
+            user_dir = Some(d);
+        }
+    }
+
     (weasel_root, user_dir, deployer)
 }
 
 pub fn inspect_environment() -> EnvironmentStatus {
     let (weasel_root_opt, user_dir_opt, deployer_opt) = detect_weasel_paths();
-    let weasel_installed = deployer_opt.is_some();
     let weasel_root = weasel_root_opt.unwrap_or_default();
     let deployer_path = deployer_opt.unwrap_or_default();
-    let rime_user_dir = user_dir_opt.unwrap_or_else(|| {
-        std::env::var("APPDATA")
-            .map(|a| PathBuf::from(a).join("Rime").to_string_lossy().to_string())
-            .unwrap_or_default()
-    });
+    let rime_user_dir = user_dir_opt.unwrap_or_else(fallback_rime_user_dir);
+    // Linux 上找不到部署程序不代表环境不可用，以 Rime 用户目录为准
+    let weasel_installed = if cfg!(target_os = "linux") {
+        Path::new(&rime_user_dir).is_dir() || !deployer_path.is_empty()
+    } else {
+        !deployer_path.is_empty()
+    };
 
     let mut weasel_version = String::new();
     if !weasel_root.is_empty() {
@@ -199,8 +270,7 @@ pub fn inspect_environment() -> EnvironmentStatus {
     let is_rime_ice_detected = user_path.join("rime_ice.schema.yaml").exists()
         || user_path.join("rime_frost.schema.yaml").exists()
         || user_path.join("rime_mint.schema.yaml").exists()
-        || user_path.join("wanxiang.schema.yaml").exists()
-        || Path::new(r"D:\GitHub\rime-ice\rime_ice.schema.yaml").exists();
+        || user_path.join("wanxiang.schema.yaml").exists();
 
     // 查找已存在的 custom.yaml 补丁文件
     let mut patch_files_found = Vec::new();
