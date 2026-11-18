@@ -151,26 +151,45 @@ pub fn trigger_deploy(custom_deployer: Option<String>) -> DeployResult {
     }
 }
 
-/// Linux 上让 fcitx5 / ibus 重新载入配置；配置已落盘时不把重载失败当成保存失败。
+/// Linux 上让 fcitx4 / fcitx5 / ibus 重新部署；配置已落盘时不把重载失败当成保存失败。
 #[cfg(target_os = "linux")]
 fn linux_trigger_deploy(custom_deployer: Option<String>) -> DeployResult {
     let user_dir = crate::detector::fallback_rime_user_dir();
+    // default.yaml 是部署生成的缓存，移走后 Rime 才会按 custom 补丁重新编译
+    let dir = std::path::Path::new(&user_dir);
+    let generated = dir.join("default.yaml");
+    if generated.exists()
+        && std::fs::rename(&generated, dir.join("default.yaml.rimetune-bak")).is_err()
+    {
+        let _ = std::fs::remove_file(&generated);
+    }
+
     let mut cmds: Vec<(String, Vec<&str>)> = Vec::new();
     if let Some(p) = custom_deployer
         .filter(|p| !p.trim().is_empty() && std::path::Path::new(p).exists())
     {
-        cmds.push((p, vec![]));
+        let args = if p.ends_with("fcitx-remote") || p.ends_with("fcitx5-remote") {
+            vec!["-r"]
+        } else if p.ends_with("/ibus") {
+            vec!["restart"]
+        } else {
+            vec![]
+        };
+        cmds.push((p, args));
     } else {
-        for bin in ["/usr/bin/fcitx5-remote", "/usr/local/bin/fcitx5-remote"] {
+        let bins: Vec<(&str, Vec<&str>)> = match crate::detector::linux_im_framework() {
+            "fcitx" => vec![("/usr/bin/fcitx-remote", vec!["-r"])],
+            "fcitx5" => vec![("/usr/bin/fcitx5-remote", vec!["-r"])],
+            "ibus" => vec![("/usr/bin/ibus", vec!["restart"])],
+            _ => vec![
+                ("/usr/bin/fcitx-remote", vec!["-r"]),
+                ("/usr/bin/fcitx5-remote", vec!["-r"]),
+                ("/usr/bin/ibus", vec!["restart"]),
+            ],
+        };
+        for (bin, args) in bins {
             if std::path::Path::new(bin).exists() {
-                cmds.push((bin.to_string(), vec!["-r"]));
-                break;
-            }
-        }
-        for bin in ["/usr/bin/ibus", "/usr/local/bin/ibus"] {
-            if std::path::Path::new(bin).exists() {
-                cmds.push((bin.to_string(), vec!["restart"]));
-                break;
+                cmds.push((bin.to_string(), args));
             }
         }
     }
@@ -190,7 +209,7 @@ fn linux_trigger_deploy(custom_deployer: Option<String>) -> DeployResult {
             Ok(s) if s.success() => {
                 return DeployResult {
                     success: true,
-                    message: format!("配置已保存，已通过 {} 重新载入输入法", bin),
+                    message: format!("配置已写入 {}，已通过 {} 重新部署", user_dir, bin),
                     deployer_used: bin.clone(),
                 };
             }
@@ -201,8 +220,8 @@ fn linux_trigger_deploy(custom_deployer: Option<String>) -> DeployResult {
     DeployResult {
         success: true,
         message: format!(
-            "配置已保存；自动重载未成功（{}），请手动重新部署 Rime",
-            last_err
+            "配置已写入 {}；自动重载未成功（{}），请手动重新部署 Rime",
+            user_dir, last_err
         ),
         deployer_used: String::new(),
     }

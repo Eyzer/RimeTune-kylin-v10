@@ -31,21 +31,63 @@ pub struct EnvironmentStatus {
     pub available_grammar_models: Vec<GrammarModelItem>,
 }
 
-/// 扫描 Linux 常见 Rime 用户目录，优先选含 Rime 特征文件的目录。
+/// 优先按正在运行的输入法框架判断，避免麒麟自带 fcitx4 被误判成 fcitx5 / ibus。
+#[cfg(target_os = "linux")]
+pub(crate) fn linux_im_framework() -> &'static str {
+    let mut running = [false; 3];
+    if let Ok(entries) = std::fs::read_dir("/proc") {
+        for e in entries.flatten() {
+            match std::fs::read_to_string(e.path().join("comm"))
+                .unwrap_or_default()
+                .trim()
+            {
+                "fcitx" => running[0] = true,
+                "fcitx5" => running[1] = true,
+                "ibus-daemon" => running[2] = true,
+                _ => {}
+            }
+        }
+    }
+    if running[1] || (!running[0] && Path::new("/usr/bin/fcitx5-remote").exists()) {
+        return "fcitx5";
+    }
+    if running[0] || Path::new("/usr/bin/fcitx-remote").exists() {
+        return "fcitx";
+    }
+    if running[2] || Path::new("/usr/bin/ibus").exists() {
+        return "ibus";
+    }
+    ""
+}
+
+#[cfg(target_os = "linux")]
+fn linux_default_rime_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let xdg = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
+    match linux_im_framework() {
+        "fcitx" => PathBuf::from(&xdg).join("fcitx/rime"),
+        "ibus" => PathBuf::from(&xdg).join("ibus/rime"),
+        _ => PathBuf::from(&home).join(".local/share/fcitx5/rime"),
+    }
+}
+
+/// 扫描 Linux 常见 Rime 用户目录，框架对应的目录排在最前。
 #[cfg(target_os = "linux")]
 fn linux_rime_dir() -> Option<String> {
     let home = std::env::var("HOME").ok()?;
     let xdg = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
-    let mut candidates = vec![
+    let mut candidates = vec![linux_default_rime_dir()];
+    candidates.extend([
+        PathBuf::from(&xdg).join("fcitx/rime"),
+        PathBuf::from(&home).join(".fcitx/rime"),
+        PathBuf::from(&home).join(".local/share/fcitx/rime"),
         PathBuf::from(&home).join(".local/share/fcitx5/rime"),
         PathBuf::from(&xdg).join("fcitx5/rime"),
+        PathBuf::from(&xdg).join("ibus/rime"),
         PathBuf::from(&home).join(".config/ibus/rime"),
-        PathBuf::from(&xdg).join("fcitx/rime"),
-        PathBuf::from(&home).join(".local/share/fcitx/rime"),
-        PathBuf::from(&home).join(".fcitx/rime"),
         PathBuf::from(&home).join(".rime"),
         PathBuf::from(&xdg).join("rime"),
-    ];
+    ]);
     for parent in [PathBuf::from(&xdg), PathBuf::from(&home).join(".local/share")] {
         if let Ok(entries) = std::fs::read_dir(&parent) {
             for e in entries.flatten() {
@@ -84,11 +126,7 @@ pub fn fallback_rime_user_dir() -> String {
         if let Some(d) = linux_rime_dir() {
             return d;
         }
-        let home = std::env::var("HOME").unwrap_or_default();
-        return PathBuf::from(&home)
-            .join(".local/share/fcitx5/rime")
-            .to_string_lossy()
-            .to_string();
+        return linux_default_rime_dir().to_string_lossy().to_string();
     }
     #[cfg(target_os = "macos")]
     {
@@ -222,7 +260,7 @@ pub fn detect_weasel_paths() -> (Option<String>, Option<String>, Option<String>)
 
     #[cfg(target_os = "linux")]
     {
-        for bin in &["/usr/bin/rime_deployer", "/usr/bin/fcitx5-remote"] {
+        for bin in &["/usr/bin/rime_deployer", "/usr/bin/fcitx-remote", "/usr/bin/fcitx5-remote"] {
             if Path::new(bin).exists() {
                 deployer = Some(bin.to_string());
                 break;
